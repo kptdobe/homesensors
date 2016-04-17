@@ -22,9 +22,15 @@ struct MOTION {
 };
 
 struct PHOTOCELL {
+  int childId;
   int pin;
-  int level;
-  int last;
+  int current;
+  int maxLevel;
+};
+
+struct TIMER {
+  int childId;
+  int duration;
 };
 
 #endif

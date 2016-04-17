@@ -5,68 +5,6 @@
 #include "Structures.h"
 #include "Config.h"
 
-/*
- * GATEWAY 
- */
-#define SN "MotionDimmableLEDStrip"
-#define SV "1.1"
-#define NODE_ID 10
-
-MySensor gateway;
-
-/*
- * LED
- */
-
-COLOR red = {
-  103,
-  3,
-  0
-};
-
-COLOR green = {
-  105,
-  5,
-  0
-};
-
-COLOR blue = {
-  106,
-  6,
-  0
-};
-
-RGB rgb = {
-  red,
-  green,
-  blue
-};
-
-/* 
- *  MOTION SENSOR  
- */
-#define INTERRUPT MOTION_PIN-2
-
-MOTION motion = {
-  110,
-  2,
-  false,
-  false,
-  false
-};
-
-MyMessage motionMsg(motion.childId, V_TRIPPED);
-
-/*
- * PHOTOCELL SENSOR
- */
-
-PHOTOCELL photocell = {
-  0,      // pin: A0
-  1500,   // level: max allowed level
-  0       // last: last read value
-};
-
 void saveRGB() {
   EEPROM.write(10, rgb.red.level);
   EEPROM.write(11, rgb.green.level);
@@ -89,12 +27,72 @@ void loadRGB() {
   rgb.blue.level = EEPROM.read(12);
   
   #ifdef DEBUG_EEPROM
-    Serial.print("Read RGB levels to EEPROM (R / G / B): ");
+    Serial.print("Read RGB levels from EEPROM (R / G / B): ");
     Serial.print(rgb.red.level);
     Serial.print(" / ");
     Serial.print(rgb.green.level);
     Serial.print(" / ");
     Serial.print(rgb.blue.level);
+    Serial.println();
+  #endif
+}
+
+void savePhotocell() {
+  int address = 13;
+  int value = photocell.maxLevel;
+  byte two = (value & 0xFF);
+  byte one = ((value >> 8) & 0xFF);
+
+  EEPROM.write(address, two);
+  EEPROM.write(address + 1, one);
+  
+  #ifdef DEBUG_EEPROM
+    Serial.print("Saved photocell max level to EEPROM: ");
+    Serial.print(photocell.maxLevel);
+    Serial.println();
+  #endif
+}
+
+void loadPhotocell() {
+  int address = 13;
+  long two = EEPROM.read(address);
+  long one = EEPROM.read(address + 1);
+  
+  photocell.maxLevel = ((two << 0) & 0xFF) + ((one << 8) & 0xFFFF);
+
+  #ifdef DEBUG_EEPROM
+    Serial.print("Read photocell max level from EEPROM: ");
+    Serial.print(photocell.maxLevel);
+    Serial.println();
+  #endif
+}
+
+void saveTimer() {
+  int address = 15;
+  int value = timer.duration;
+  byte two = (value & 0xFF);
+  byte one = ((value >> 8) & 0xFF);
+
+  EEPROM.write(address, two);
+  EEPROM.write(address + 1, one);
+  
+  #ifdef DEBUG_EEPROM
+    Serial.print("Saved timer max duration to EEPROM: ");
+    Serial.print(timer.duration);
+    Serial.println();
+  #endif
+}
+
+void loadTimer() {
+  int address = 15;
+  long two = EEPROM.read(address);
+  long one = EEPROM.read(address + 1);
+  
+  timer.duration = ((two << 0) & 0xFF) + ((one << 8) & 0xFFFF);
+
+  #ifdef DEBUG_EEPROM
+    Serial.print("Read timer max duration from EEPROM: ");
+    Serial.print(timer.duration);
     Serial.println();
   #endif
 }
@@ -141,6 +139,8 @@ void setup() {
 
   // load EEPROM persisted valus
   loadRGB();
+  loadPhotocell();
+  loadTimer();
 
   // initial colored test flash
   on();
@@ -153,6 +153,9 @@ void setup() {
    
   pinMode(motion.pin, INPUT);
   gateway.present(motion.childId, S_MOTION);
+
+  gateway.present(photocell.childId, S_DIMMER);
+  gateway.present(timer.childId, S_DIMMER);
 }
 
 /***
@@ -165,6 +168,7 @@ void loop()
   handleLight();
 }
 
+unsigned long onStartTime;
 void handleLight() {
 
   if (motion.forced) {
@@ -183,15 +187,24 @@ void handleLight() {
   }
   
   int photocellReading = analogRead(photocell.pin);
-  boolean isCell = (photocellReading <= photocell.level);
+  photocell.current = photocellReading;
+  boolean isCell = (photocellReading <= photocell.maxLevel);
 
+  #ifdef DEBUG_PHOTOCELL
+      Serial.print("Photocell (current / maxLevel): ");
+        Serial.print(photocellReading);
+        Serial.print(" / ");
+        Serial.print(photocell.maxLevel);
+        Serial.println();
+  #endif
+  
   if (!isCell) {
     if (isLightOn()) {
       #ifdef DEBUG_PROCESS
-        Serial.print("Turning OFF because photocell value is below level (current / level): ");
+        Serial.print("Turning OFF because photocell value is below level (current / maxLevel): ");
         Serial.print(photocellReading);
         Serial.print(" / ");
-        Serial.print(photocell.level);
+        Serial.print(photocell.maxLevel);
         Serial.println();
       #endif
       
@@ -206,21 +219,27 @@ void handleLight() {
   // read digital motion value
   motion.current = (digitalRead(motion.pin) == HIGH);
   
-  if (motion.current && !isLightOn()) {
-    #ifdef DEBUG_PROCESS
-      Serial.print("Turning ON because motion sensor detected move.");
+  if (motion.current) {
+    #ifdef DEBUG_MOTION
+      Serial.print("Turning ON because motion sensor detected move (duration): ");
+      Serial.print(timer.duration);
       Serial.println();
     #endif
-    
+
+    onStartTime = millis();
     on();
     //gateway.send(motionMsg.set(motion.current?"1":"0"));  // send motion value to gateway
     
     return;
   }
 
-  if (!motion.current && isLightOn()) {
+  unsigned long elsapsedTime = millis() - onStartTime;
+  if (elsapsedTime >= timer.duration && isLightOn()) {
     #ifdef DEBUG_PROCESS
-      Serial.print("Turning OFF because motion sensor stop detecting move.");
+      Serial.print("Turning OFF because on duration time is over (elsapsedTime / duration): ");
+      Serial.print(elsapsedTime);
+      Serial.print(" / ");
+      Serial.print(timer.duration);
       Serial.println();
     #endif
     
@@ -231,30 +250,36 @@ void handleLight() {
   }
 }
 
+int getValidPercentage(const MyMessage &message) {
+  //  Retrieve the power or dim level from the incoming request message
+  int requestedLevel = atoi( message.data );
+
+  // Adjust incoming level if this is a V_LIGHT variable update [0 == off, 1 == on]
+  requestedLevel *= ( message.type == V_LIGHT ? 100 : 1 );
+
+  // Clip incoming level to valid range of 0 to 100
+  requestedLevel = requestedLevel > 100 ? 100 : requestedLevel;
+  requestedLevel = requestedLevel < 0   ? 0   : requestedLevel;
+
+  return requestedLevel;
+}
 
 void incomingMessage(const MyMessage &message) {
-    #ifdef DEBUG_MSG
-      Serial.print("Received message from gateway (type / data / sensor)");
-      Serial.print(message.type);
-      Serial.print(" / ");
-      Serial.print(message.data);
-      Serial.print(" / ");
-      Serial.print(message.sensor);
-      Serial.println();
-    #endif
-      
-    if (message.type == V_DIMMER) {
-    
-    //  Retrieve the power or dim level from the incoming request message
-    int requestedLevel = atoi( message.data );
-    
-    // Adjust incoming level if this is a V_LIGHT variable update [0 == off, 1 == on]
-    requestedLevel *= ( message.type == V_LIGHT ? 100 : 1 );
-    
-    // Clip incoming level to valid range of 0 to 100
-    requestedLevel = requestedLevel > 100 ? 100 : requestedLevel;
-    requestedLevel = requestedLevel < 0   ? 0   : requestedLevel;
+  #ifdef DEBUG_MSG
+    Serial.print("Received message from gateway (type / data / sensor): ");
+    Serial.print(message.type);
+    Serial.print(" / ");
+    Serial.print(message.data);
+    Serial.print(" / ");
+    Serial.print(message.sensor);
+    Serial.println();
+  #endif
 
+  if (message.sensor == rgb.red.childId || message.sensor == rgb.green.childId || message.sensor == rgb.blue.childId) {
+  
+    //  Retrieve the power or dim level from the incoming request message
+    int requestedLevel = getValidPercentage(message);
+  
     COLOR* color = getColor(message.sensor);
 
     if (color != NULL) {
@@ -281,16 +306,60 @@ void incomingMessage(const MyMessage &message) {
         Serial.println();
       #endif
     }
-  } else {
-    if (message.type == V_LIGHT && message.sensor == motion.childId) {
-      motion.forced = (atoi( message.data ) == 1);
+  }
+
+  if (message.sensor == motion.childId) {
+    motion.forced = (atoi( message.data ) == 1);
+    
+    #ifdef DEBUG_MSG
+      Serial.print("Interpreted motion force request (data): ");
+      Serial.print(motion.forced);
+      Serial.println();
+    #endif
+  }
+
+  if (message.sensor == photocell.childId) {
+    int requestedLevel = getValidPercentage(message);
+    int value = (int)(requestedLevel / 100. * PHOTOCELL_MAX_RANGE); // % of PHOTOCELL_MAX_RANGE
+    
+    #ifdef DEBUG_MSG
+      Serial.print("Interpreted photocell max level change request (% / from / to / max): ");
+      Serial.print(requestedLevel);
+      Serial.print(" / ");
+      Serial.print(photocell.maxLevel);
+      Serial.print(" / ");
+      Serial.print(value);
+      Serial.print(" / ");
+      Serial.print(PHOTOCELL_MAX_RANGE);
       
-      #ifdef DEBUG_MSG
-        Serial.print("Interpreted motion force request (data): ");
-        Serial.print(motion.forced);
-        Serial.println();
-      #endif
-    }
+      Serial.println();
+    #endif
+
+    photocell.maxLevel = value;
+
+    savePhotocell();
+  }
+
+  if (message.sensor == timer.childId) {
+    int requestedLevel = getValidPercentage(message);
+    int value = (int)(requestedLevel / 100. * TIMER_MAX_DURATION); // % of TIMER_MAX_DURATION
+    
+    #ifdef DEBUG_MSG
+      Serial.print("Interpreted timer max duration change request (% / from / to / max): ");
+      Serial.print(requestedLevel);
+      Serial.print(" / ");
+      Serial.print(timer.duration);
+      Serial.print(" / ");
+      Serial.print(value);
+      Serial.print(" / ");
+      Serial.print(TIMER_MAX_DURATION);
+      
+      Serial.println();
+    #endif
+
+    timer.duration = value;
+
+    saveTimer();
   }
 }
 
