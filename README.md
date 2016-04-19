@@ -8,6 +8,11 @@ Overall [fritzing](http://fritzing.org) diagram of the project:
 
 ![MyDimmableLEDStrip](img/MyDimmableLEDStrip_bb.png)
 
-Followed [this instructable](http://www.instructables.com/id/Enhanced-NRF24L01/) in order to improve wireless transmissions. But will still need to buy a transmitter with Antenna to mount into waterproof box.  
+Some resources I followed / inspired from for my project:
+
+* Arduino and LED Strip [learn.adafruit.com/rgb-led-strips](https://learn.adafruit.com/rgb-led-strips) 
+* Arduino and photoresistor [blog.udemy.com/arduino-ldr](https://blog.udemy.com/arduino-ldr/)
+* Arduino and motion sensor [learn.adafruit.com/pir-passive-infrared-proximity-motion-sensor](https://learn.adafruit.com/pir-passive-infrared-proximity-motion-sensor/)
+* [Enhanced-NRF24L01 instructable](http://www.instructables.com/id/Enhanced-NRF24L01/) in order to improve wireless transmissions. But will still need to buy a transmitter with Antenna to mount into waterproof box.  
 
 ![My custom Antenna](./img/pimpMyTransmitter.jpg)
