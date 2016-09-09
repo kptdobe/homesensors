@@ -102,7 +102,7 @@ void loadTimer() {
  */
 void setup() { 
   
-  gateway.begin( incomingMessage, NODE_ID );
+  gateway.begin( incomingMessage, NODE_ID, true );
   gateway.sendSketchInfo(SN, SV);
   
   #ifdef DEBUG_PROCESS
@@ -134,7 +134,7 @@ void setup() {
 
   // initial white flash
   on(true);
-  delay(500);
+  gateway.wait(500);
   off();
 
   // load EEPROM persisted valus
@@ -144,7 +144,7 @@ void setup() {
 
   // initial colored test flash
   on();
-  delay(500);
+  gateway.wait(500);
   off();
 
   /*
@@ -152,23 +152,70 @@ void setup() {
    */
    
   pinMode(motion.pin, INPUT);
+  
   gateway.present(motion.childId, S_MOTION);
 
   gateway.present(photocell.childId, S_DIMMER);
   gateway.present(timer.childId, S_DIMMER);
+
+  gateway.present(temp.childId, S_TEMP);
+
 }
 
 /***
  *  Main loop
  */
-void loop() 
-{
+void loop() {
   gateway.process();
-
+  
+  handleTemperature();
   handleLight();
 }
 
+unsigned long lastTimeTemp;
+
+void handleTemperature() {
+  unsigned long current = millis();
+
+  // read only every x seconds
+  if(current - lastTimeTemp < TEMPERATURE_READ_TIMEOUT) return;
+
+  lastTimeTemp = current;
+  int reading = analogRead(temp.pin);  
+ 
+  float voltage = reading * 5.0 / 1024.0;
+  float temperature = (voltage - 0.5) * 100;
+  
+  #ifdef DEBUG_TEMPERATURE
+      Serial.print("Temperature (voltage / last / current / diff): ");
+      Serial.print(voltage);
+      Serial.print(" / ");
+      Serial.print(temperature);
+      Serial.print(" / ");
+      Serial.print(temp.last);
+      Serial.print(" / ");
+      Serial.print(abs(temperature - temp.last));
+      
+      Serial.println();
+      gateway.wait(3000);
+    #endif
+ 
+  // Only send data if temperature has changed and no error
+  if (temp.last != temperature && 
+        temperature > -40.00 && 
+        temperature < 125.00 &&
+        abs(temperature - temp.last) > TEMPERATURE_MIN_DELTA) {
+    // Send in the new temperature
+    gateway.send(temperatureMsg.set(temperature, 1));
+    
+    // Save new temperatures for next compare
+    temp.last = temperature;
+  }
+  
+}
+
 unsigned long onStartTime;
+
 void handleLight() {
 
   if (motion.forced) {
@@ -233,7 +280,7 @@ void handleLight() {
     return;
   }
 
-  unsigned long elsapsedTime = millis() - onStartTime;
+  unsigned long elsapsedTime = (millis() - onStartTime) / 1000;
   if (elsapsedTime >= timer.duration && isLightOn()) {
     #ifdef DEBUG_PROCESS
       Serial.print("Turning OFF because on duration time is over (elsapsedTime / duration): ");
@@ -298,7 +345,7 @@ void incomingMessage(const MyMessage &message) {
       
       setLevel(color, value);
       on();
-      delay(500);
+      gateway.wait(500);
       off();
     } else {
       #ifdef DEBUG_MSG
@@ -342,7 +389,7 @@ void incomingMessage(const MyMessage &message) {
 
   if (message.sensor == timer.childId) {
     int requestedLevel = getValidPercentage(message);
-    int value = (int)(requestedLevel / 100. * TIMER_MAX_DURATION); // % of TIMER_MAX_DURATION
+    long value = (int)(requestedLevel / 100. * TIMER_MAX_DURATION); // % of TIMER_MAX_DURATION
     
     #ifdef DEBUG_MSG
       Serial.print("Interpreted timer max duration change request (% / from / to / max): ");

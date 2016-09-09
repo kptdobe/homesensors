@@ -33,5 +33,11 @@ struct TIMER {
   int duration;
 };
 
+struct TEMPERATURE {
+  int childId;
+  int pin;
+  float last;
+};
+
 #endif
 
