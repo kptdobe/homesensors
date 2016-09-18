@@ -5,6 +5,8 @@
 #include <EEPROM.h>
 #include <MySensors.h>
 
+#define DWELL_TIME 500 //Time to wait between radio messages sent (helps prevent missed messages)
+
 void saveRGB() {
   EEPROM.write(10, rgb.red.level);
   EEPROM.write(11, rgb.green.level);
@@ -150,12 +152,19 @@ void presentation() {
 
 
   present( rgb.red.childId, S_DIMMER );
+  wait(DWELL_TIME);
   present( rgb.green.childId, S_DIMMER );
+  wait(DWELL_TIME);
   present( rgb.blue.childId, S_DIMMER );
+  wait(DWELL_TIME);
   present(motion.childId, S_MOTION);
+  wait(DWELL_TIME);
   present(photocell.childId, S_DIMMER);
+  wait(DWELL_TIME);
   present(timer.childId, S_DIMMER);
+  wait(DWELL_TIME);
   present(temp.childId, S_TEMP);
+  wait(DWELL_TIME);
 
 }
 

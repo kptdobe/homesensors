@@ -5,7 +5,7 @@
 #include <OneWire.h>
 
 // Enable debug prints to serial monitor
-#define MY_DEBUG 
+//#define MY_DEBUG 
 
 // Enable and select radio type attached
 #define MY_RADIO_NRF24
@@ -13,11 +13,11 @@
 // Enable repeater functionality for this node
 #define MY_REPEATER_FEATURE
 
-#define DEBUG_PROCESS
+//#define DEBUG_PROCESS
 //#define DEBUG_EEPROM
 //#define DEBUG_COLOR
-#define DEBUG_MSG
-#define DEBUG_MOTION
+//#define DEBUG_MSG
+//#define DEBUG_MOTION
 //#define DEBUG_PHOTOCELL
 //#define DEBUG_TEMPERATURE
 
@@ -26,7 +26,7 @@
 
 
 const int PHOTOCELL_MAX_RANGE = 2000;
-const int TIMER_MAX_DURATION = 10;//300; // 5 mins
+const int TIMER_MAX_DURATION = 300; // 5 mins
 const byte TEMPERATURE_MIN_DELTA = 1; // send new temp on if diff of 1 deg with last measurement
 const int TEMPERATURE_READ_TIMEOUT = 5000; // read temp only each 5000 ms
 
@@ -36,13 +36,13 @@ const int TEMPERATURE_READ_TIMEOUT = 5000; // read temp only each 5000 ms
 #ifndef DEV_MODE
 // prod
 #define SN "MotionDimmableLEDStrip"
-#define SV "2.0"
+#define SV "3.0"
 #endif
 
 #ifdef DEV_MODE
 // dev
 #define SN "MotionDimmableLEDStrip_DEV"
-#define SV "2.0"
+#define SV "3.0"
 #endif
 
 /*
