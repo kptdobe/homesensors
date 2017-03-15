@@ -6,6 +6,8 @@ Typical light with motion detection use case for outside.
 
 Video of the result embedded into a rock gabion: [![RockNRoll light](https://i.ytimg.com/vi/-A1QbA0RGAY/1.jpg?time=1471943221597)](https://youtu.be/-A1QbA0RGAY)
 
+The 6 of them: [![RockNRoll lights](./img/IMG_4684.png)]
+
 Overall [fritzing](http://fritzing.org) diagram of the project:
 
 ![MyDimmableLEDStrip](img/MyDimmableLEDStrip_bb.png)
